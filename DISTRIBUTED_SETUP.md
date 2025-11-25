@@ -23,17 +23,15 @@ This guide explains how to deploy the Image Processing Pipeline across **5 physi
 
 ---
 
-## 🛠️ Step 1: Get IP Addresses
+## 🛠️ Step 1: Static IP Addresses
 
-On **EACH** device, open a terminal and find the IP address:
-*   **Windows**: `ipconfig` (Look for IPv4 Address)
-*   **Mac/Linux**: `ifconfig` or `ip a`
+Your devices are configured with the following static IPs:
 
-Write them down:
-*   **RESIZE_IP** (Device 1): `_________________`
-*   **FILTER_IP** (Device 2): `_________________`
-*   **WATERMARK_IP** (Device 3): `_________________`
-*   **FORMAT_IP** (Device 4): `_________________`
+*   **RESIZE_IP** (Device 1): `100.120.161.53`
+*   **FILTER_IP** (Device 2): `100.71.209.102`
+*   **WATERMARK_IP** (Device 3): `100.115.248.53`
+*   **FORMAT_IP** (Device 4): `100.71.185.127`
+*   **MASTER_IP** (Device 5): `100.103.89.22`
 
 ---
 
@@ -67,10 +65,10 @@ Write them down:
 2.  Set the environment variables for the worker IPs (Replace with actual IPs):
 
 ```powershell
-$env:RESIZE_IP="192.168.1.101"
-$env:FILTER_IP="192.168.1.102"
-$env:WATERMARK_IP="192.168.1.103"
-$env:FORMAT_IP="192.168.1.104"
+$env:RESIZE_IP="100.120.161.53"
+$env:FILTER_IP="100.71.209.102"
+$env:WATERMARK_IP="100.115.248.53"
+$env:FORMAT_IP="100.71.185.127"
 ```
 
 3.  Start the Orchestrator:

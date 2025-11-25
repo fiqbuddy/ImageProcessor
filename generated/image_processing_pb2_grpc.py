@@ -441,9 +441,85 @@ class WatermarkService(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
 
+class FormatServiceStub(object):
+    """============================================================================
+    SERVICE 5: FORMAT SERVICE
+    Converts images to different formats and adjusts quality
+    ============================================================================
+
+    """
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.ConvertFormat = channel.unary_unary(
+                '/image_processing.FormatService/ConvertFormat',
+                request_serializer=image__processing__pb2.FormatRequest.SerializeToString,
+                response_deserializer=image__processing__pb2.FormatResponse.FromString,
+                )
+
+
+class FormatServiceServicer(object):
+    """============================================================================
+    SERVICE 5: FORMAT SERVICE
+    Converts images to different formats and adjusts quality
+    ============================================================================
+
+    """
+
+    def ConvertFormat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_FormatServiceServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'ConvertFormat': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConvertFormat,
+                    request_deserializer=image__processing__pb2.FormatRequest.FromString,
+                    response_serializer=image__processing__pb2.FormatResponse.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'image_processing.FormatService', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+
+
+ # This class is part of an EXPERIMENTAL API.
+class FormatService(object):
+    """============================================================================
+    SERVICE 5: FORMAT SERVICE
+    Converts images to different formats and adjusts quality
+    ============================================================================
+
+    """
+
+    @staticmethod
+    def ConvertFormat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/image_processing.FormatService/ConvertFormat',
+            image__processing__pb2.FormatRequest.SerializeToString,
+            image__processing__pb2.FormatResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+
 class OrchestratorServiceStub(object):
     """============================================================================
-    SERVICE 5: ORCHESTRATOR SERVICE
+    SERVICE 6: ORCHESTRATOR SERVICE
     Coordinates the entire image processing pipeline
     ============================================================================
 
@@ -469,7 +545,7 @@ class OrchestratorServiceStub(object):
 
 class OrchestratorServiceServicer(object):
     """============================================================================
-    SERVICE 5: ORCHESTRATOR SERVICE
+    SERVICE 6: ORCHESTRATOR SERVICE
     Coordinates the entire image processing pipeline
     ============================================================================
 
@@ -509,7 +585,7 @@ def add_OrchestratorServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class OrchestratorService(object):
     """============================================================================
-    SERVICE 5: ORCHESTRATOR SERVICE
+    SERVICE 6: ORCHESTRATOR SERVICE
     Coordinates the entire image processing pipeline
     ============================================================================
 

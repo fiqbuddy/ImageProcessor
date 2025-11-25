@@ -84,6 +84,10 @@ def process_image(stub, image_data, filename, target_width=0, target_height=0, f
         print(f"      - Watermark: {response.stats.watermark_time_ms}ms")
         print(f"      - Format:    {response.stats.format_time_ms}ms")
         print(f"      Size: {response.stats.original_size_bytes:,} -> {response.stats.processed_size_bytes:,} bytes")
+        
+        print(f"   🌍 Execution Trace:")
+        for stage, host in response.stats.host_map.items():
+            print(f"      - {stage}: {host}")
     else:
         print(f"❌ FAILED: {response.message}")
 

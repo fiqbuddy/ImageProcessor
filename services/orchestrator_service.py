@@ -97,6 +97,7 @@ class OrchestratorServiceServicer(image_processing_pb2_grpc.OrchestratorServiceS
                     
                     current_image = response.resized_image
                     stats.resize_time_ms = response.processing_time_ms
+                    stats.host_map["Resize"] = resize_host
                     print(f"   ✅ Resized in {stats.resize_time_ms}ms")
             else:
                 print("⏭️  STAGE 1: Skipping resize")
@@ -124,6 +125,7 @@ class OrchestratorServiceServicer(image_processing_pb2_grpc.OrchestratorServiceS
                             raise Exception(f"Filter {filter_name} failed: {response.message}")
                         
                         current_image = response.filtered_image
+                        stats.host_map[f"Filter-{i+1} ({filter_name})"] = filter_host
                 
                 stats.filter_time_ms = int((time.time() - filter_start) * 1000)
                 print(f"   ✅ Filters applied in {stats.filter_time_ms}ms")
@@ -152,6 +154,7 @@ class OrchestratorServiceServicer(image_processing_pb2_grpc.OrchestratorServiceS
                     
                     current_image = response.watermarked_image
                     stats.watermark_time_ms = response.processing_time_ms
+                    stats.host_map["Watermark"] = watermark_host
                     print(f"   ✅ Watermark added in {stats.watermark_time_ms}ms")
             else:
                 print("⏭️  STAGE 3: Skipping watermark")
@@ -180,11 +183,13 @@ class OrchestratorServiceServicer(image_processing_pb2_grpc.OrchestratorServiceS
                 
                 current_image = response.formatted_image
                 stats.format_time_ms = response.processing_time_ms
+                stats.host_map["Format"] = format_host
                 print(f"   ✅ Formatted in {stats.format_time_ms}ms")
 
             # Finalize
             stats.total_time_ms = int((time.time() - start_total) * 1000)
             stats.processed_size_bytes = len(current_image)
+            stats.host_map["Orchestrator"] = "Device 5 (Master)"
             
             print(f"\n✅ Pipeline Complete! Total time: {stats.total_time_ms}ms")
             
@@ -225,16 +230,19 @@ def serve(port=50055):
     """Start the Orchestrator Service server"""
     
     # ------------------------------------------------------------------
-    # 🔧 CONFIGURATION: Set your Worker Device IP here!
+    # 🔧 CONFIGURATION: Static IPs for all worker devices
     # ------------------------------------------------------------------
-    DEFAULT_WORKER_IP = '100.103.89.22'  # <--- CHANGE THIS TO DEVICE 1 IP
+    DEFAULT_RESIZE_IP = '100.120.161.53'
+    DEFAULT_FILTER_IP = '100.71.209.102'
+    DEFAULT_WATERMARK_IP = '100.115.248.53'
+    DEFAULT_FORMAT_IP = '100.71.185.127'
     # ------------------------------------------------------------------
 
-    # Read service hosts from environment variables, OR use the default worker IP
-    resize_hosts = os.getenv('RESIZE_SERVICE_HOSTS', f'{DEFAULT_WORKER_IP}:50052')
-    filter_hosts = os.getenv('FILTER_SERVICE_HOSTS', f'{DEFAULT_WORKER_IP}:50053')
-    watermark_hosts = os.getenv('WATERMARK_SERVICE_HOSTS', f'{DEFAULT_WORKER_IP}:50054')
-    format_hosts = os.getenv('FORMAT_SERVICE_HOSTS', f'{DEFAULT_WORKER_IP}:50056')
+    # Read service hosts from environment variables, OR use the default static IPs
+    resize_hosts = os.getenv('RESIZE_SERVICE_HOSTS', f'{DEFAULT_RESIZE_IP}:50052')
+    filter_hosts = os.getenv('FILTER_SERVICE_HOSTS', f'{DEFAULT_FILTER_IP}:50053')
+    watermark_hosts = os.getenv('WATERMARK_SERVICE_HOSTS', f'{DEFAULT_WATERMARK_IP}:50054')
+    format_hosts = os.getenv('FORMAT_SERVICE_HOSTS', f'{DEFAULT_FORMAT_IP}:50056')
     
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     image_processing_pb2_grpc.add_OrchestratorServiceServicer_to_server(
