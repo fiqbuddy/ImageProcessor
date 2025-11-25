@@ -113,95 +113,32 @@ def run_pipeline_demo():
     stub = image_processing_pb2_grpc.OrchestratorServiceStub(channel)
     
     try:
-        # Demo 1: Full Pipeline
+        # Single Demo: Complete Pipeline Test
         print("\n" + "─"*80)
-        print("🎯 DEMO 1: Full Pipeline (Resize + Filters + Watermark)")
+        print("🎯 PIPELINE TEST: Resize → Filter → Watermark → Format")
         print("─"*80)
         
         process_image(
             stub,
             img_bytes,
-            "output_full_pipeline.png",
+            "output_processed.png",
             target_width=1280,
             target_height=720,
             filters=[
                 image_processing_pb2.BLUR,
-                image_processing_pb2.SHARPEN,
-                image_processing_pb2.SEPIA
+                image_processing_pb2.SHARPEN
             ],
-            watermark_text="Processed by gRPC"
-        )
-        
-        # Demo 2: Resize Only
-        print("\n" + "─"*80)
-        print("🎯 DEMO 2: Resize Only")
-        print("─"*80)
-        
-        process_image(
-            stub,
-            img_bytes,
-            "output_resize_only.png",
-            target_width=800,
-            target_height=600
-        )
-        
-        # Demo 3: Heavy Filter Processing
-        print("\n" + "─"*80)
-        print("🎯 DEMO 3: Heavy Processing (Multiple Filters)")
-        print("─"*80)
-        
-        process_image(
-            stub,
-            img_bytes,
-            "output_heavy_filters.png",
-            target_width=1024,
-            target_height=768,
-            filters=[
-                image_processing_pb2.BLUR,
-                image_processing_pb2.SHARPEN,
-                image_processing_pb2.EDGE_DETECT,
-                image_processing_pb2.SEPIA,
-                image_processing_pb2.BRIGHTNESS
-            ]
-        )
-
-        # Demo 4: Format Conversion (WEBP)
-        print("\n" + "─"*80)
-        print("🎯 DEMO 4: Format Conversion (WEBP Quality 80)")
-        print("─"*80)
-        
-        process_image(
-            stub,
-            img_bytes,
-            "output_converted.webp",
-            target_width=1024,
-            target_height=768,
-            filters=[image_processing_pb2.BRIGHTNESS],
-            watermark_text="WEBP FORMAT",
-            output_format=image_processing_pb2.WEBP,
-            output_quality=80
-        )
-
-        # Demo 5: High Compression JPEG
-        print("\n" + "─"*80)
-        print("🎯 DEMO 5: High Compression JPEG (Quality 10)")
-        print("─"*80)
-        
-        process_image(
-            stub,
-            img_bytes,
-            "output_compressed.jpg",
-            target_width=1920,
-            target_height=1080,
-            filters=[],
-            watermark_text="LOW QUALITY",
-            output_format=image_processing_pb2.JPEG,
-            output_quality=10
+            watermark_text="Distributed gRPC Pipeline",
+            output_format=image_processing_pb2.PNG,
+            output_quality=90
         )
         
         print("\n" + "="*80)
-        print("✨ All Demos Completed Successfully!")
+        print("✨ Pipeline Test Complete!")
         print("="*80)
+        print("\n📂 Output: output_processed.png")
+        print("💡 Check the Execution Trace above to see which device handled each stage!")
+        print("="*80 + "\n")
         
     except grpc.RpcError as e:
         print(f"\n❌ Error: {e.details()}")

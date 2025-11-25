@@ -13,19 +13,19 @@ services:
       - "50055:50055"
     environment:
       # -----------------------------------------------------------------------
-      # CONFIGURATION: REPLACE THESE IPs WITH YOUR ACTUAL DEVICE IPs
+      # CONFIGURATION: Static IPs with defaults
       # -----------------------------------------------------------------------
 
-      # Device 1 IP (Resize Node) - Ports 50052, 50062, 50072
-      - RESIZE_SERVICE_HOSTS=${RESIZE_IP}:50052,${RESIZE_IP}:50062,${RESIZE_IP}:50072
+      # Device 1 IP (Resize Node) - Single instance
+      - RESIZE_SERVICE_HOSTS=${RESIZE_IP:-100.120.161.53}:50052
 
-      # Device 2 IP (Filter Node) - Ports 50053, 50063, 50073, 50083, 50093
-      - FILTER_SERVICE_HOSTS=${FILTER_IP}:50053,${FILTER_IP}:50063,${FILTER_IP}:50073,${FILTER_IP}:50083,${FILTER_IP}:50093
+      # Device 2 IP (Filter Node) - Single instance
+      - FILTER_SERVICE_HOSTS=${FILTER_IP:-100.71.209.102}:50053
 
-      # Device 3 IP (Watermark Node) - Ports 50054, 50064, 50074
-      - WATERMARK_SERVICE_HOSTS=${WATERMARK_IP}:50054,${WATERMARK_IP}:50064,${WATERMARK_IP}:50074
+      # Device 3 IP (Watermark Node) - Single instance
+      - WATERMARK_SERVICE_HOSTS=${WATERMARK_IP:-100.115.248.53}:50054
 
-      # Device 4 IP (Format Node) - Ports 50056, 50066, 50076
-      - FORMAT_SERVICE_HOSTS=${FORMAT_IP}:50056,${FORMAT_IP}:50066,${FORMAT_IP}:50076
+      # Device 4 IP (Format Node) - Single instance
+      - FORMAT_SERVICE_HOSTS=${FORMAT_IP:-100.71.185.127}:50056
 
       - PYTHONUNBUFFERED=1

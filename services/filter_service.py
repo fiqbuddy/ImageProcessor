@@ -110,7 +110,17 @@ class FilterServiceServicer(image_processing_pb2_grpc.FilterServiceServicer):
             filtered_bytes = output_buffer.getvalue()
             
             processing_time = int((time.time() - start_time) * 1000)
-            print(f"  ✅ {filter_name} completed in {processing_time}ms")
+            
+            print(f"{'='*60}")
+            print(f"✅ FILTER COMPLETE")
+            print(f"{'='*60}")
+            print(f"   Filter Type:   {filter_name}")
+            print(f"   Intensity:     {request.intensity:.2f}")
+            print(f"   Image ID:      {request.image_id}")
+            print(f"   Input size:    {len(request.image_data):,} bytes")
+            print(f"   Output size:   {len(filtered_bytes):,} bytes")
+            print(f"   Processing:    {processing_time}ms")
+            print(f"{'='*60}\n")
             
             return image_processing_pb2.FilterResponse(
                 success=True,

@@ -52,7 +52,18 @@ class FormatService(image_processing_pb2_grpc.FormatServiceServicer):
             formatted_data = output_buffer.getvalue()
             
             processing_time = int((time.time() - start_time) * 1000)
-            print(f"✅ Format complete in {processing_time}ms. Size: {len(request.image_data)} -> {len(formatted_data)} bytes")
+            
+            print(f"{'='*60}")
+            print(f"✅ FORMAT COMPLETE")
+            print(f"{'='*60}")
+            print(f"   Output Format: {output_format}")
+            print(f"   Quality:       {quality}%")
+            print(f"   Image ID:      {request.image_id}")
+            print(f"   Input size:    {len(request.image_data):,} bytes")
+            print(f"   Output size:   {len(formatted_data):,} bytes")
+            print(f"   Compression:   {((1 - len(formatted_data)/len(request.image_data)) * 100):.1f}%")
+            print(f"   Processing:    {processing_time}ms")
+            print(f"{'='*60}\n")
             
             return image_processing_pb2.FormatResponse(
                 success=True,

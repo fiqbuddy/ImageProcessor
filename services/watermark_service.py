@@ -84,7 +84,18 @@ class WatermarkServiceServicer(image_processing_pb2_grpc.WatermarkServiceService
             watermarked_bytes = output_buffer.getvalue()
             
             processing_time = int((time.time() - start_time) * 1000)
-            print(f"  ✅ Text watermark added in {processing_time}ms")
+            
+            print(f"{'='*60}")
+            print(f"✅ WATERMARK COMPLETE")
+            print(f"{'='*60}")
+            print(f"   Text:          '{request.text}'")
+            print(f"   Position:      {request.position}")
+            print(f"   Opacity:       {request.opacity:.2f}")
+            print(f"   Image ID:      {request.image_id}")
+            print(f"   Input size:    {len(request.image_data):,} bytes")
+            print(f"   Output size:   {len(watermarked_bytes):,} bytes")
+            print(f"   Processing:    {processing_time}ms")
+            print(f"{'='*60}\n")
             
             return image_processing_pb2.WatermarkResponse(
                 success=True,

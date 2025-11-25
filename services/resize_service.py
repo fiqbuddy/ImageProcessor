@@ -65,7 +65,17 @@ class ResizeServiceServicer(image_processing_pb2_grpc.ResizeServiceServicer):
             resized_bytes = output_buffer.getvalue()
             
             processing_time = int((time.time() - start_time) * 1000)
-            print(f"  Resized to: {new_width}x{new_height} in {processing_time}ms")
+            
+            print(f"{'='*60}")
+            print(f"✅ RESIZE COMPLETE")
+            print(f"{'='*60}")
+            print(f"   Image ID:      {request.image_id}")
+            print(f"   Original:      {original_size[0]}x{original_size[1]}")
+            print(f"   Resized to:    {new_width}x{new_height}")
+            print(f"   Input size:    {len(request.image_data):,} bytes")
+            print(f"   Output size:   {len(resized_bytes):,} bytes")
+            print(f"   Processing:    {processing_time}ms")
+            print(f"{'='*60}\n")
             
             return image_processing_pb2.ResizeResponse(
                 success=True,
