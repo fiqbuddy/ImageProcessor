@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # DEVICE 2: FILTER CLUSTER
+  # Runs 5 parallel instances of Filter Service (CPU Heavy)
+  # ============================================================================
+  filter-1:
+    build: .
+    container_name: filter-1
+    command: python services/filter_service.py
+    ports:
+      - "50053:50053"
+    environment:
+      - SERVICE_NAME=filter-1
+
+  filter-2:
+    build: .
+    container_name: filter-2
+    command: python services/filter_service.py
+    ports:
+      - "50063:50053"
+    environment:
+      - SERVICE_NAME=filter-2
+
+  filter-3:
+    build: .
+    container_name: filter-3
+    command: python services/filter_service.py
+    ports:
+      - "50073:50053"
+    environment:
+      - SERVICE_NAME=filter-3
+
+  filter-4:
+    build: .
+    container_name: filter-4
+    command: python services/filter_service.py
+    ports:
+      - "50083:50053"
+    environment:
+      - SERVICE_NAME=filter-4
+
+  filter-5:
+    build: .
+    container_name: filter-5
+    command: python services/filter_service.py
+    ports:
+      - "50093:50053"
+    environment:
+      - SERVICE_NAME=filter-5

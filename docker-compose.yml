@@ -1,0 +1,165 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # RESIZE SERVICE - 3 instances for load balancing
+  # ============================================================================
+  resize-1:
+    build: .
+    container_name: resize-service-1
+    command: python services/resize_service.py
+    ports:
+      - "50052:50052"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=resize-1
+
+  resize-2:
+    build: .
+    container_name: resize-service-2
+    command: python services/resize_service.py
+    ports:
+      - "50062:50052"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=resize-2
+
+  resize-3:
+    build: .
+    container_name: resize-service-3
+    command: python services/resize_service.py
+    ports:
+      - "50072:50052"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=resize-3
+
+  # ============================================================================
+  # FILTER SERVICE - 5 instances (bottleneck service needs most parallelization)
+  # ============================================================================
+  filter-1:
+    build: .
+    container_name: filter-service-1
+    command: python services/filter_service.py
+    ports:
+      - "50053:50053"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=filter-1
+
+  filter-2:
+    build: .
+    container_name: filter-service-2
+    command: python services/filter_service.py
+    ports:
+      - "50063:50053"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=filter-2
+
+  filter-3:
+    build: .
+    container_name: filter-service-3
+    command: python services/filter_service.py
+    ports:
+      - "50073:50053"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=filter-3
+
+  filter-4:
+    build: .
+    container_name: filter-service-4
+    command: python services/filter_service.py
+    ports:
+      - "50083:50053"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=filter-4
+
+  filter-5:
+    build: .
+    container_name: filter-service-5
+    command: python services/filter_service.py
+    ports:
+      - "50093:50053"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=filter-5
+
+  # ============================================================================
+  # WATERMARK SERVICE - 3 instances
+  # ============================================================================
+  watermark-1:
+    build: .
+    container_name: watermark-service-1
+    command: python services/watermark_service.py
+    ports:
+      - "50054:50054"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=watermark-1
+
+  watermark-2:
+    build: .
+    container_name: watermark-service-2
+    command: python services/watermark_service.py
+    ports:
+      - "50064:50054"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=watermark-2
+
+  watermark-3:
+    build: .
+    container_name: watermark-service-3
+    command: python services/watermark_service.py
+    ports:
+      - "50074:50054"
+    networks:
+      - grpc-network
+    environment:
+      - SERVICE_NAME=watermark-3
+
+  # ============================================================================
+  # ORCHESTRATOR SERVICE - Load balancer aware
+  # ============================================================================
+  orchestrator:
+    build: .
+    container_name: orchestrator-service
+    command: python services/orchestrator_service.py
+    ports:
+      - "50055:50055"
+    networks:
+      - grpc-network
+    environment:
+      # Multiple hosts for load balancing
+      - RESIZE_SERVICE_HOSTS=resize-1:50052,resize-2:50052,resize-3:50052
+      - FILTER_SERVICE_HOSTS=filter-1:50053,filter-2:50053,filter-3:50053,filter-4:50053,filter-5:50053
+      - WATERMARK_SERVICE_HOSTS=watermark-1:50054,watermark-2:50054,watermark-3:50054
+    depends_on:
+      - resize-1
+      - resize-2
+      - resize-3
+      - filter-1
+      - filter-2
+      - filter-3
+      - filter-4
+      - filter-5
+      - watermark-1
+      - watermark-2
+      - watermark-3
+
+networks:
+  grpc-network:
+    driver: bridge

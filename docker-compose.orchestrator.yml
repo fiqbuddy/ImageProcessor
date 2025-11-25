@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # DEVICE 5: ORCHESTRATOR (MASTER)
+  # Coordinates the pipeline across other devices
+  # ============================================================================
+  orchestrator:
+    build: .
+    container_name: orchestrator
+    command: python -u services/orchestrator_service.py
+    ports:
+      - "50055:50055"
+    environment:
+      # -----------------------------------------------------------------------
+      # CONFIGURATION: REPLACE THESE IPs WITH YOUR ACTUAL DEVICE IPs
+      # -----------------------------------------------------------------------
+
+      # Device 1 IP (Resize Node) - Ports 50052, 50062, 50072
+      - RESIZE_SERVICE_HOSTS=${RESIZE_IP}:50052,${RESIZE_IP}:50062,${RESIZE_IP}:50072
+
+      # Device 2 IP (Filter Node) - Ports 50053, 50063, 50073, 50083, 50093
+      - FILTER_SERVICE_HOSTS=${FILTER_IP}:50053,${FILTER_IP}:50063,${FILTER_IP}:50073,${FILTER_IP}:50083,${FILTER_IP}:50093
+
+      # Device 3 IP (Watermark Node) - Ports 50054, 50064, 50074
+      - WATERMARK_SERVICE_HOSTS=${WATERMARK_IP}:50054,${WATERMARK_IP}:50064,${WATERMARK_IP}:50074
+
+      # Device 4 IP (Format Node) - Ports 50056, 50066, 50076
+      - FORMAT_SERVICE_HOSTS=${FORMAT_IP}:50056,${FORMAT_IP}:50066,${FORMAT_IP}:50076
+
+      - PYTHONUNBUFFERED=1

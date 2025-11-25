@@ -1,0 +1,429 @@
+syntax = "proto3";
+
+package image_processing;
+
+// ============================================================================
+// SERVICE 1: RECEIVER SERVICE
+// Receives and validates image uploads
+// ============================================================================
+
+service ReceiverService {
+  rpc UploadImage(stream ImageChunk) returns (UploadResponse);
+  rpc ValidateImage(ImageMetadata) returns (ValidationResponse);
+}
+
+message ImageChunk {
+  bytes data = 1;
+  int32 chunk_number = 2;
+  int32 total_chunks = 3;
+  ImageMetadata metadata = 4;
+}
+
+message ImageMetadata {
+  string image_id = 1;
+  string filename = 2;
+  string format = 3;  // jpg, png, etc.
+  int32 width = 4;
+  int32 height = 5;
+  int64 size_bytes = 6;
+}
+
+message UploadResponse {
+  bool success = 1;
+  string message = 2;
+  string image_id = 3;
+  ImageMetadata metadata = 4;
+}
+
+message ValidationResponse {
+  bool valid = 1;
+  string message = 2;
+  repeated string issues = 3;
+}
+
+// ============================================================================
+// SERVICE 2: RESIZE SERVICE
+// Resizes images to multiple dimensions
+// ============================================================================
+
+service ResizeService {
+  rpc ResizeImage(ResizeRequest) returns (ResizeResponse);
+  rpc GetThumbnail(ThumbnailRequest) returns (ImageData);
+}
+
+message ResizeRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  int32 target_width = 3;
+  int32 target_height = 4;
+  bool maintain_aspect_ratio = 5;
+}
+
+message ResizeResponse {
+  bool success = 1;
+  string message = 2;
+  bytes resized_image = 3;
+  int32 new_width = 4;
+  int32 new_height = 5;
+  int64 processing_time_ms = 6;
+}
+
+message ThumbnailRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  int32 size = 3;  // thumbnail size (square)
+}
+
+message ImageData {
+  bytes data = 1;
+  int32 width = 2;
+  int32 height = 3;
+  string format = 4;
+}
+
+// ============================================================================
+// SERVICE 3: FILTER SERVICE
+// Applies various image filters and effects
+// ============================================================================
+
+service FilterService {
+  rpc ApplyFilter(FilterRequest) returns (FilterResponse);
+  rpc BatchFilter(BatchFilterRequest) returns (BatchFilterResponse);
+}
+
+enum FilterType {
+  NONE = 0;
+  GRAYSCALE = 1;
+  BLUR = 2;
+  SHARPEN = 3;
+  EDGE_DETECT = 4;
+  SEPIA = 5;
+  NEGATIVE = 6;
+  BRIGHTNESS = 7;
+  CONTRAST = 8;
+}
+
+message FilterRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  FilterType filter_type = 3;
+  float intensity = 4;  // 0.0 to 1.0
+}
+
+message FilterResponse {
+  bool success = 1;
+  string message = 2;
+  bytes filtered_image = 3;
+  int64 processing_time_ms = 4;
+}
+
+message BatchFilterRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  repeated FilterType filters = 3;
+}
+
+message BatchFilterResponse {
+  bool success = 1;
+  string message = 2;
+  bytes filtered_image = 3;
+  int64 total_processing_time_ms = 4;
+}
+
+// ============================================================================
+// SERVICE 4: WATERMARK SERVICE
+// Adds watermarks (text or logo) to images
+// ============================================================================
+
+service WatermarkService {
+  rpc AddTextWatermark(TextWatermarkRequest) returns (WatermarkResponse);
+  rpc AddLogoWatermark(LogoWatermarkRequest) returns (WatermarkResponse);
+}
+
+message TextWatermarkRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  string text = 3;
+  string position = 4;  // top-left, top-right, bottom-left, bottom-right, center
+  int32 font_size = 5;
+  string color = 6;     // hex color code
+  float opacity = 7;    // 0.0 to 1.0
+}
+
+message LogoWatermarkRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  bytes logo_data = 3;
+  string position = 4;
+  float scale = 5;      // 0.0 to 1.0
+  float opacity = 6;
+}
+
+message WatermarkResponse {
+  bool success = 1;
+  string message = 2;
+  bytes watermarked_image = 3;
+  int64 processing_time_ms = 4;
+}
+
+// ============================================================================
+syntax = "proto3";
+
+package image_processing;
+
+// ============================================================================
+// SERVICE 1: RECEIVER SERVICE
+// Receives and validates image uploads
+// ============================================================================
+
+service ReceiverService {
+  rpc UploadImage(stream ImageChunk) returns (UploadResponse);
+  rpc ValidateImage(ImageMetadata) returns (ValidationResponse);
+}
+
+message ImageChunk {
+  bytes data = 1;
+  int32 chunk_number = 2;
+  int32 total_chunks = 3;
+  ImageMetadata metadata = 4;
+}
+
+message ImageMetadata {
+  string image_id = 1;
+  string filename = 2;
+  string format = 3;  // jpg, png, etc.
+  int32 width = 4;
+  int32 height = 5;
+  int64 size_bytes = 6;
+}
+
+message UploadResponse {
+  bool success = 1;
+  string message = 2;
+  string image_id = 3;
+  ImageMetadata metadata = 4;
+}
+
+message ValidationResponse {
+  bool valid = 1;
+  string message = 2;
+  repeated string issues = 3;
+}
+
+// ============================================================================
+// SERVICE 2: RESIZE SERVICE
+// Resizes images to multiple dimensions
+// ============================================================================
+
+service ResizeService {
+  rpc ResizeImage(ResizeRequest) returns (ResizeResponse);
+  rpc GetThumbnail(ThumbnailRequest) returns (ImageData);
+}
+
+message ResizeRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  int32 target_width = 3;
+  int32 target_height = 4;
+  bool maintain_aspect_ratio = 5;
+}
+
+message ResizeResponse {
+  bool success = 1;
+  string message = 2;
+  bytes resized_image = 3;
+  int32 new_width = 4;
+  int32 new_height = 5;
+  int64 processing_time_ms = 6;
+}
+
+message ThumbnailRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  int32 size = 3;  // thumbnail size (square)
+}
+
+message ImageData {
+  bytes data = 1;
+  int32 width = 2;
+  int32 height = 3;
+  string format = 4;
+}
+
+// ============================================================================
+// SERVICE 3: FILTER SERVICE
+// Applies various image filters and effects
+// ============================================================================
+
+service FilterService {
+  rpc ApplyFilter(FilterRequest) returns (FilterResponse);
+  rpc BatchFilter(BatchFilterRequest) returns (BatchFilterResponse);
+}
+
+enum FilterType {
+  NONE = 0;
+  GRAYSCALE = 1;
+  BLUR = 2;
+  SHARPEN = 3;
+  EDGE_DETECT = 4;
+  SEPIA = 5;
+  NEGATIVE = 6;
+  BRIGHTNESS = 7;
+  CONTRAST = 8;
+}
+
+message FilterRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  FilterType filter_type = 3;
+  float intensity = 4;  // 0.0 to 1.0
+}
+
+message FilterResponse {
+  bool success = 1;
+  string message = 2;
+  bytes filtered_image = 3;
+  int64 processing_time_ms = 4;
+}
+
+message BatchFilterRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  repeated FilterType filters = 3;
+}
+
+message BatchFilterResponse {
+  bool success = 1;
+  string message = 2;
+  bytes filtered_image = 3;
+  int64 total_processing_time_ms = 4;
+}
+
+// ============================================================================
+// SERVICE 4: WATERMARK SERVICE
+// Adds watermarks (text or logo) to images
+// ============================================================================
+
+service WatermarkService {
+  rpc AddTextWatermark(TextWatermarkRequest) returns (WatermarkResponse);
+  rpc AddLogoWatermark(LogoWatermarkRequest) returns (WatermarkResponse);
+}
+
+message TextWatermarkRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  string text = 3;
+  string position = 4;  // top-left, top-right, bottom-left, bottom-right, center
+  int32 font_size = 5;
+  string color = 6;     // hex color code
+  float opacity = 7;    // 0.0 to 1.0
+}
+
+message LogoWatermarkRequest {
+  string image_id = 1;
+  bytes image_data = 2;
+  bytes logo_data = 3;
+  string position = 4;
+  float scale = 5;      // 0.0 to 1.0
+  float opacity = 6;
+}
+
+message WatermarkResponse {
+  bool success = 1;
+  string message = 2;
+  bytes watermarked_image = 3;
+  int32 processing_time_ms = 4;
+}
+
+// ============================================================================
+// SERVICE 5: FORMAT SERVICE
+// Converts images to different formats and adjusts quality
+// ============================================================================
+
+service FormatService {
+    rpc ConvertFormat (FormatRequest) returns (FormatResponse);
+}
+
+enum ImageFormat {
+    PNG = 0;
+    JPEG = 1;
+    WEBP = 2;
+}
+
+message FormatRequest {
+    string image_id = 1;
+    bytes image_data = 2;
+    ImageFormat format = 3;
+    int32 quality = 4; // 1-100
+}
+
+message FormatResponse {
+    bool success = 1;
+    string message = 2;
+    bytes formatted_image = 3;
+    int32 processing_time_ms = 4;
+}
+
+// ============================================================================
+// SERVICE 6: ORCHESTRATOR SERVICE
+// Coordinates the entire image processing pipeline
+// ============================================================================
+
+service OrchestratorService {
+  rpc ProcessImage(ProcessRequest) returns (ProcessResponse);
+  rpc GetProcessingStatus(StatusRequest) returns (StatusResponse);
+}
+
+message ProcessRequest {
+  string filename = 1;
+  bytes image_data = 2;
+  ProcessingOptions options = 3;
+}
+
+message ProcessingOptions {
+  // Resize options
+  int32 target_width = 1;
+  int32 target_height = 2;
+  
+  // Filter options
+  repeated FilterType filters = 3;
+  
+  // Watermark options
+  bool add_watermark = 4;
+  string watermark_text = 5;
+  string watermark_position = 6; // "top-left", "center", "bottom-right", etc.
+  
+  // Format options
+  ImageFormat output_format = 7;
+  int32 output_quality = 8;
+}
+
+message ProcessResponse {
+  bool success = 1;
+  string message = 2;
+  string process_id = 3;
+  bytes processed_image = 4;
+  ProcessingStats stats = 5;
+}
+
+message ProcessingStats {
+  int32 resize_time_ms = 1;
+  int32 filter_time_ms = 2;
+  int32 watermark_time_ms = 3;
+  int32 format_time_ms = 4;
+  int32 total_time_ms = 5;
+  int64 original_size_bytes = 6;
+  int64 processed_size_bytes = 7;
+}
+
+message StatusRequest {
+  string process_id = 1;
+}
+
+message StatusResponse {
+  string process_id = 1;
+  string status = 2;  // queued, processing, completed, failed
+  int32 progress_percent = 3;
+  string current_stage = 4;
+  ProcessingStats stats = 5;
+}

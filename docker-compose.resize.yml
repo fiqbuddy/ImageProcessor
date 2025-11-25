@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # DEVICE 1: RESIZE CLUSTER
+  # Runs 3 parallel instances of Resize Service
+  # ============================================================================
+  resize-1:
+    build: .
+    container_name: resize-1
+    command: python services/resize_service.py
+    ports:
+      - "50052:50052" # Exposed on Host Port 50052
+    environment:
+      - SERVICE_NAME=resize-1
+
+  resize-2:
+    build: .
+    container_name: resize-2
+    command: python services/resize_service.py
+    ports:
+      - "50062:50052" # Exposed on Host Port 50062
+    environment:
+      - SERVICE_NAME=resize-2
+
+  resize-3:
+    build: .
+    container_name: resize-3
+    command: python services/resize_service.py
+    ports:
+      - "50072:50052" # Exposed on Host Port 50072
+    environment:
+      - SERVICE_NAME=resize-3

@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # DEVICE 1: SUPER WORKER (FOR TESTING)
+  # Runs ALL processing services (Resize, Filter, Watermark, Format)
+  # ============================================================================
+
+  # --- Resize Cluster (3 instances) ---
+  resize-1:
+    build: .
+    container_name: resize-1
+    command: python -u services/resize_service.py
+    ports:
+      - "50052:50052"
+    environment:
+      - SERVICE_NAME=resize-1
+      - PYTHONUNBUFFERED=1
+
+  resize-2:
+    build: .
+    container_name: resize-2
+    command: python -u services/resize_service.py
+    ports:
+      - "50062:50052"
+    environment:
+      - SERVICE_NAME=resize-2
+      - PYTHONUNBUFFERED=1
+
+  resize-3:
+    build: .
+    container_name: resize-3
+    command: python -u services/resize_service.py
+    ports:
+      - "50072:50052"
+    environment:
+      - SERVICE_NAME=resize-3
+      - PYTHONUNBUFFERED=1
+
+  # --- Filter Cluster (3 instances for test) ---
+  filter-1:
+    build: .
+    container_name: filter-1
+    command: python -u services/filter_service.py
+    ports:
+      - "50053:50053"
+    environment:
+      - SERVICE_NAME=filter-1
+      - PYTHONUNBUFFERED=1
+
+  filter-2:
+    build: .
+    container_name: filter-2
+    command: python -u services/filter_service.py
+    ports:
+      - "50063:50053"
+    environment:
+      - SERVICE_NAME=filter-2
+      - PYTHONUNBUFFERED=1
+
+  filter-3:
+    build: .
+    container_name: filter-3
+    command: python -u services/filter_service.py
+    ports:
+      - "50073:50053"
+    environment:
+      - SERVICE_NAME=filter-3
+      - PYTHONUNBUFFERED=1
+
+  # --- Watermark Cluster (2 instances for test) ---
+  watermark-1:
+    build: .
+    container_name: watermark-1
+    command: python -u services/watermark_service.py
+    ports:
+      - "50054:50054"
+    environment:
+      - SERVICE_NAME=watermark-1
+      - PYTHONUNBUFFERED=1
+
+  watermark-2:
+    build: .
+    container_name: watermark-2
+    command: python -u services/watermark_service.py
+    ports:
+      - "50064:50054"
+    environment:
+      - SERVICE_NAME=watermark-2
+      - PYTHONUNBUFFERED=1
+
+  # --- Format Cluster (2 instances for test) ---
+  format-1:
+    build: .
+    container_name: format-1
+    command: python -u services/format_service.py
+    ports:
+      - "50056:50056"
+    environment:
+      - SERVICE_NAME=format-1
+      - PYTHONUNBUFFERED=1
+
+  format-2:
+    build: .
+    container_name: format-2
+    command: python -u services/format_service.py
+    ports:
+      - "50066:50056"
+    environment:
+      - SERVICE_NAME=format-2
+      - PYTHONUNBUFFERED=1

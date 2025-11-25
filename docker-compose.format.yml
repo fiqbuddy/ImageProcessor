@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  format-service:
+    build: .
+    image: image-processing-service:latest
+    command: python -u services/format_service.py
+    ports:
+      - "50056:50056"
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=50056

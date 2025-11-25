@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # DEVICE 3: WATERMARK CLUSTER
+  # Runs 3 parallel instances of Watermark Service
+  # ============================================================================
+  watermark-1:
+    build: .
+    container_name: watermark-1
+    command: python services/watermark_service.py
+    ports:
+      - "50054:50054"
+    environment:
+      - SERVICE_NAME=watermark-1
+
+  watermark-2:
+    build: .
+    container_name: watermark-2
+    command: python services/watermark_service.py
+    ports:
+      - "50064:50054"
+    environment:
+      - SERVICE_NAME=watermark-2
+
+  watermark-3:
+    build: .
+    container_name: watermark-3
+    command: python services/watermark_service.py
+    ports:
+      - "50074:50054"
+    environment:
+      - SERVICE_NAME=watermark-3
