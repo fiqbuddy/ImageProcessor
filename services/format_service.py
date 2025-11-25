@@ -74,13 +74,13 @@ def serve(port=50056):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     image_processing_pb2_grpc.add_FormatServiceServicer_to_server(FormatService(), server)
     
-    # Enable reflection
-    SERVICE_NAMES = (
-        image_processing_pb2.DESCRIPTOR.services_by_name['FormatService'].full_name,
-        grpc.reflection.SERVICE_NAME,
-    )
+    # Enable reflection (optional, for debugging)
     try:
         from grpc_reflection.v1alpha import reflection
+        SERVICE_NAMES = (
+            image_processing_pb2.DESCRIPTOR.services_by_name['FormatService'].full_name,
+            reflection.SERVICE_NAME,
+        )
         reflection.enable_server_reflection(SERVICE_NAMES, server)
     except ImportError:
         pass
