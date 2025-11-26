@@ -84,10 +84,12 @@ class OrchestratorService:
         print(f"="*70 + "\n")
         
         start_total = time.time()
-        current_image = image_data
+        # Extract bytes from initial Binary input
+        current_image_bytes = image_data.data if hasattr(image_data, 'data') else image_data
+        current_image = Binary(current_image_bytes)
         
         stats = {
-            'original_size_bytes': len(image_data.data),
+            'original_size_bytes': len(current_image_bytes),
             'resize_time_ms': 0,
             'filter_time_ms': 0,
             'watermark_time_ms': 0,
@@ -113,7 +115,8 @@ class OrchestratorService:
                     if not response['success']:
                         raise Exception(f"Resize failed: {response['message']}")
                     
-                    current_image = response['resized_image']
+                    # Extract bytes from Binary response and re-wrap
+                    current_image = Binary(response['resized_image'].data)
                     stats['resize_time_ms'] = response['processing_time_ms']
                     stats['host_map']['Resize'] = resize_host
                     print(f"   ✅ Resized in {stats['resize_time_ms']}ms")
@@ -141,7 +144,8 @@ class OrchestratorService:
                         if not response['success']:
                             raise Exception(f"Filter {filter_type} failed: {response['message']}")
                         
-                        current_image = response['filtered_image']
+                        # Extract bytes from Binary response and re-wrap
+                        current_image = Binary(response['filtered_image'].data)
                         stats['host_map'][f"Filter-{i+1} ({filter_type})"] = filter_host
                 
                 stats['filter_time_ms'] = int((time.time() - filter_start) * 1000)
@@ -168,7 +172,8 @@ class OrchestratorService:
                     if not response['success']:
                         raise Exception(f"Watermark failed: {response['message']}")
                     
-                    current_image = response['watermarked_image']
+                    # Extract bytes from Binary response and re-wrap
+                    current_image = Binary(response['watermarked_image'].data)
                     stats['watermark_time_ms'] = response['processing_time_ms']
                     stats['host_map']['Watermark'] = watermark_host
                     print(f"   ✅ Watermark added in {stats['watermark_time_ms']}ms")
@@ -196,7 +201,8 @@ class OrchestratorService:
                 if not response['success']:
                     raise Exception(f"Format failed: {response['message']}")
                 
-                current_image = response['formatted_image']
+                # Extract bytes from Binary response and re-wrap
+                current_image = Binary(response['formatted_image'].data)
                 stats['format_time_ms'] = response['processing_time_ms']
                 stats['host_map']['Format'] = format_host
                 print(f"   ✅ Formatted in {stats['format_time_ms']}ms")
@@ -204,6 +210,10 @@ class OrchestratorService:
             # Finalize
             stats['total_time_ms'] = int((time.time() - start_total) * 1000)
             stats['processed_size_bytes'] = len(current_image.data)
+            
+            # Ensure current_image is a Binary object for return
+            if not hasattr(current_image, 'data'):
+                current_image = Binary(current_image)
             stats['host_map']['Orchestrator'] = "Device 5 (Master)"
             
             print(f"\n✅ Pipeline Complete! Total time: {stats['total_time_ms']}ms")
@@ -245,12 +255,17 @@ def serve(port=50055):
     """Start the Orchestrator Service server"""
     
     # ------------------------------------------------------------------
-    # 🔧 CONFIGURATION: Static IPs for all worker devices
+    # 🔧 CONFIGURATION: Default to localhost (override with env vars for distributed)
+    # For distributed deployment, set environment variables:
+    #   RESIZE_SERVICE_HOSTS=100.120.161.53:50052
+    #   FILTER_SERVICE_HOSTS=100.71.209.102:50053
+    #   WATERMARK_SERVICE_HOSTS=100.115.248.53:50054
+    #   FORMAT_SERVICE_HOSTS=100.71.185.127:50056
     # ------------------------------------------------------------------
-    DEFAULT_RESIZE_IP = '100.120.161.53'
-    DEFAULT_FILTER_IP = '100.71.209.102'
-    DEFAULT_WATERMARK_IP = '100.115.248.53'
-    DEFAULT_FORMAT_IP = '100.71.185.127'
+    DEFAULT_RESIZE_IP = 'localhost'
+    DEFAULT_FILTER_IP = 'localhost'
+    DEFAULT_WATERMARK_IP = 'localhost'
+    DEFAULT_FORMAT_IP = 'localhost'
     # ------------------------------------------------------------------
 
     # Read service hosts from environment variables, OR use the default static IPs
@@ -259,12 +274,18 @@ def serve(port=50055):
     watermark_hosts = os.getenv('WATERMARK_SERVICE_HOSTS', f'{DEFAULT_WATERMARK_IP}:50054')
     format_hosts = os.getenv('FORMAT_SERVICE_HOSTS', f'{DEFAULT_FORMAT_IP}:50056')
     
-    server = SimpleXMLRPCServer(('0.0.0.0', port), allow_none=True, logRequests=False)
+    server = SimpleXMLRPCServer(('0.0.0.0', port), allow_none=True, logRequests=True)
+    server.register_introspection_functions()
     server.register_instance(
         OrchestratorService(resize_hosts, filter_hosts, watermark_hosts, format_hosts)
     )
     
     print(f"🎯 Orchestrator Service started on port {port}")
+    print(f"📊 Load Balancing Configuration:")
+    print(f"   Resize: {resize_hosts}")
+    print(f"   Filter: {filter_hosts}")
+    print(f"   Watermark: {watermark_hosts}")
+    print(f"   Format: {format_hosts}")
     server.serve_forever()
 
 
