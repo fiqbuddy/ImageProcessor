@@ -1,7 +1,8 @@
 """
 Image Processing Client - Demonstrates the complete pipeline with batch processing
+Now uses XML-RPC instead of gRPC
 """
-import grpc
+from xmlrpc.client import ServerProxy, Binary
 import sys
 import os
 import time
@@ -14,11 +15,23 @@ if sys.platform == 'win32':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-# Add generated code to path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'generated'))
+# Filter and format constants (replacing protobuf enums)
+FILTERS = {
+    'GRAYSCALE': 'GRAYSCALE',
+    'BLUR': 'BLUR',
+    'SHARPEN': 'SHARPEN',
+    'EDGE_DETECT': 'EDGE_DETECT',
+    'SEPIA': 'SEPIA',
+    'NEGATIVE': 'NEGATIVE',
+    'BRIGHTNESS': 'BRIGHTNESS',
+    'CONTRAST': 'CONTRAST'
+}
 
-import image_processing_pb2
-import image_processing_pb2_grpc
+FORMATS = {
+    'PNG': 'PNG',
+    'JPEG': 'JPEG',
+    'WEBP': 'WEBP'
+}
 
 
 def create_sample_image(width=1920, height=1080):
@@ -43,42 +56,38 @@ def create_sample_image(width=1920, height=1080):
     
     # Text
     draw.text((width//2 - 100, height//2 - 30), "SAMPLE IMAGE", fill=(255, 255, 255))
-    draw.text((width//2 - 120, height//2 + 30), "For gRPC Processing", fill=(255, 255, 255))
+    draw.text((width//2 - 120, height//2 + 30), "For XML-RPC Processing", fill=(255, 255, 255))
     
     return image
 
-def process_image(stub, image_data, filename, target_width=0, target_height=0, filters=None, watermark_text=None, output_format=image_processing_pb2.PNG, output_quality=90):
-    """Helper to send a request and print results"""
-    if filters is None: filters = []
-    
-    # Create options
-    options = image_processing_pb2.ProcessingOptions(
-        target_width=target_width,
-        target_height=target_height,
-        filters=filters,
-        add_watermark=bool(watermark_text),
-        watermark_text=watermark_text or "",
-        watermark_position="bottom-right",
-        output_format=output_format,
-        output_quality=output_quality
-    )
 
-    response = stub.ProcessImage(
-        image_processing_pb2.ProcessRequest(
-            filename=filename,
-            image_data=image_data,
-            options=options
-        )
-    )
+def process_image(proxy, image_data, filename, target_width=0, target_height=0, filters=None, watermark_text=None, output_format='PNG', output_quality=90):
+    """Helper to send a request and print results"""
+    if filters is None:
+        filters = []
     
-    if response.success:
+    # Create options dictionary
+    options = {
+        'target_width': target_width,
+        'target_height': target_height,
+        'filters': filters,
+        'add_watermark': bool(watermark_text),
+        'watermark_text': watermark_text or "",
+        'watermark_position': "bottom-right",
+        'output_format': output_format,
+        'output_quality': output_quality
+    }
+
+    response = proxy.process_image(filename, Binary(image_data), options)
+    
+    if response['success']:
         # Save result
-        result_img = Image.open(BytesIO(response.processed_image))
+        result_img = Image.open(BytesIO(response['processed_image'].data))
         result_img.save(filename)
         
-        print(f"✅ Success! Total: {response.stats.total_time_ms}ms | Saved: {filename}")
+        print(f"✅ Success! Total: {response['stats']['total_time_ms']}ms | Saved: {filename}")
     else:
-        print(f"❌ FAILED: {response.message}")
+        print(f"❌ FAILED: {response['message']}")
 
 
 def run_pipeline_demo():
@@ -96,8 +105,7 @@ def run_pipeline_demo():
     
     # Connect to Orchestrator
     print("🔌 Connecting to Orchestrator Service (port 50055)...")
-    channel = grpc.insecure_channel('localhost:50055')
-    stub = image_processing_pb2_grpc.OrchestratorServiceStub(channel)
+    proxy = ServerProxy('http://localhost:50055', allow_none=True)
     
     # Batch processing configuration
     NUM_IMAGES = 30
@@ -125,10 +133,10 @@ def run_pipeline_demo():
             
             # Vary the processing parameters
             filter_sets = [
-                [image_processing_pb2.BLUR, image_processing_pb2.SHARPEN],
-                [image_processing_pb2.SEPIA],
-                [image_processing_pb2.BRIGHTNESS, image_processing_pb2.CONTRAST],
-                [image_processing_pb2.GRAYSCALE],
+                ['BLUR', 'SHARPEN'],
+                ['SEPIA'],
+                ['BRIGHTNESS', 'CONTRAST'],
+                ['GRAYSCALE'],
             ]
             filters = filter_sets[i % len(filter_sets)]
             
@@ -136,20 +144,20 @@ def run_pipeline_demo():
                 f"Image #{i}",
                 f"Batch Processing",
                 f"Distributed Pipeline",
-                f"gRPC Demo"
+                f"XML-RPC Demo"
             ]
             watermark = watermarks[i % len(watermarks)]
             
             try:
                 process_image(
-                    stub,
+                    proxy,
                     img_bytes,
                     f"output/batch_{i:03d}.png",
                     target_width=1280,
                     target_height=720,
                     filters=filters,
                     watermark_text=watermark,
-                    output_format=image_processing_pb2.PNG,
+                    output_format='PNG',
                     output_quality=90
                 )
                 successful += 1
@@ -173,12 +181,9 @@ def run_pipeline_demo():
         print("💡 Check worker terminals to see distributed processing activity!")
         print("="*80 + "\n")
         
-    except grpc.RpcError as e:
-        print(f"\n❌ Error: {e.details()}")
+    except Exception as e:
+        print(f"\n❌ Error: {str(e)}")
         print("\n🔧 Make sure all services are running!")
-    
-    finally:
-        channel.close()
 
 
 if __name__ == '__main__':

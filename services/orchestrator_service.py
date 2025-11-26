@@ -2,29 +2,30 @@
 Orchestrator Service - Coordinates the entire image processing pipeline
 Calls: Resize → Filter → Watermark → Format in sequence
 NOW WITH LOAD BALANCING: Distributes requests across multiple service instances
+Now uses XML-RPC instead of gRPC
 """
-print("🚀 Orchestrator Service starting...", flush=True)
-
-import grpc
-from concurrent import futures
 import sys
 import os
-import uuid
-import time
-import random
 
 # Fix Windows console encoding (simplified)
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
 
-# Add generated code to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'generated'))
+print("🚀 Orchestrator Service starting...", flush=True)
 
-import image_processing_pb2
-import image_processing_pb2_grpc
+from xmlrpc.server import SimpleXMLRPCServer
+from xmlrpc.client import ServerProxy, Binary
+import sys
+import os
+import uuid
+import time
+
+# Fix Windows console encoding (simplified)
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8')
 
 
-class OrchestratorServiceServicer(image_processing_pb2_grpc.OrchestratorServiceServicer):
+class OrchestratorService:
     def __init__(self, resize_hosts, filter_hosts, watermark_hosts, format_hosts):
         # Parse comma-separated hosts
         self.resize_hosts = [h.strip() for h in resize_hosts.split(',')]
@@ -64,98 +65,113 @@ class OrchestratorServiceServicer(image_processing_pb2_grpc.OrchestratorServiceS
             return host
         return None
 
-    def ProcessImage(self, request, context):
+    def process_image(self, filename, image_data, options):
+        """
+        Process an image through the complete pipeline
+        
+        Args:
+            filename: Name of the image file
+            image_data: Binary image data (xmlrpc.client.Binary)
+            options: Dictionary containing processing options:
+                - target_width, target_height
+                - filters: list of filter names
+                - add_watermark, watermark_text, watermark_position
+                - output_format, output_quality
+        """
         process_id = str(uuid.uuid4())
         print(f"\n" + "="*70)
-        print(f"[Orchestrator] Processing {request.filename} (process_id={process_id})")
+        print(f"[Orchestrator] Processing {filename} (process_id={process_id})")
         print(f"="*70 + "\n")
         
         start_total = time.time()
-        current_image = request.image_data
+        current_image = image_data
         
-        stats = image_processing_pb2.ProcessingStats()
-        stats.original_size_bytes = len(current_image)
+        stats = {
+            'original_size_bytes': len(image_data.data),
+            'resize_time_ms': 0,
+            'filter_time_ms': 0,
+            'watermark_time_ms': 0,
+            'format_time_ms': 0,
+            'host_map': {}
+        }
         
         try:
             # --- STAGE 1: RESIZE ---
-            if request.options.target_width > 0 or request.options.target_height > 0:
+            if options.get('target_width', 0) > 0 or options.get('target_height', 0) > 0:
                 resize_host = self._get_next_host('resize')
                 print(f"🖼  STAGE 1: Resizing image... (using {resize_host})")
                 
-                with grpc.insecure_channel(resize_host) as channel:
-                    stub = image_processing_pb2_grpc.ResizeServiceStub(channel)
-                    response = stub.ResizeImage(image_processing_pb2.ResizeRequest(
-                        image_id=process_id,
-                        image_data=current_image,
-                        target_width=request.options.target_width,
-                        target_height=request.options.target_height,
-                        maintain_aspect_ratio=True
-                    ))
+                with ServerProxy(f'http://{resize_host}', allow_none=True) as proxy:
+                    response = proxy.resize_image(
+                        current_image,
+                        process_id,
+                        options.get('target_width', 0),
+                        options.get('target_height', 0),
+                        True  # maintain_aspect_ratio
+                    )
                     
-                    if not response.success:
-                        raise Exception(f"Resize failed: {response.message}")
+                    if not response['success']:
+                        raise Exception(f"Resize failed: {response['message']}")
                     
-                    current_image = response.resized_image
-                    stats.resize_time_ms = response.processing_time_ms
-                    stats.host_map["Resize"] = resize_host
-                    print(f"   ✅ Resized in {stats.resize_time_ms}ms")
+                    current_image = response['resized_image']
+                    stats['resize_time_ms'] = response['processing_time_ms']
+                    stats['host_map']['Resize'] = resize_host
+                    print(f"   ✅ Resized in {stats['resize_time_ms']}ms")
             else:
                 print("⏭️  STAGE 1: Skipping resize")
 
             # --- STAGE 2: FILTERS ---
-            if request.options.filters:
-                print(f"🎨 STAGE 2: Applying {len(request.options.filters)} filter(s)...")
+            filters = options.get('filters', [])
+            if filters:
+                print(f"🎨 STAGE 2: Applying {len(filters)} filter(s)...")
                 filter_start = time.time()
                 
-                for i, filter_type in enumerate(request.options.filters):
+                for i, filter_type in enumerate(filters):
                     filter_host = self._get_next_host('filter')
-                    filter_name = image_processing_pb2.FilterType.Name(filter_type)
-                    print(f"   [{i+1}/{len(request.options.filters)}] Applying {filter_name}... (using {filter_host})")
+                    print(f"   [{i+1}/{len(filters)}] Applying {filter_type}... (using {filter_host})")
                     
-                    with grpc.insecure_channel(filter_host) as channel:
-                        stub = image_processing_pb2_grpc.FilterServiceStub(channel)
-                        response = stub.ApplyFilter(image_processing_pb2.FilterRequest(
-                            image_id=process_id,
-                            image_data=current_image,
-                            filter_type=filter_type,
-                            intensity=1.0
-                        ))
+                    with ServerProxy(f'http://{filter_host}', allow_none=True) as proxy:
+                        response = proxy.apply_filter(
+                            current_image,
+                            process_id,
+                            filter_type,
+                            1.0  # intensity
+                        )
                         
-                        if not response.success:
-                            raise Exception(f"Filter {filter_name} failed: {response.message}")
+                        if not response['success']:
+                            raise Exception(f"Filter {filter_type} failed: {response['message']}")
                         
-                        current_image = response.filtered_image
-                        stats.host_map[f"Filter-{i+1} ({filter_name})"] = filter_host
+                        current_image = response['filtered_image']
+                        stats['host_map'][f"Filter-{i+1} ({filter_type})"] = filter_host
                 
-                stats.filter_time_ms = int((time.time() - filter_start) * 1000)
-                print(f"   ✅ Filters applied in {stats.filter_time_ms}ms")
+                stats['filter_time_ms'] = int((time.time() - filter_start) * 1000)
+                print(f"   ✅ Filters applied in {stats['filter_time_ms']}ms")
             else:
                 print("⏭️  STAGE 2: Skipping filters")
 
             # --- STAGE 3: WATERMARK ---
-            if request.options.add_watermark:
+            if options.get('add_watermark', False):
                 watermark_host = self._get_next_host('watermark')
                 print(f"🏷️  STAGE 3: Adding watermark... (using {watermark_host})")
                 
-                with grpc.insecure_channel(watermark_host) as channel:
-                    stub = image_processing_pb2_grpc.WatermarkServiceStub(channel)
-                    response = stub.AddTextWatermark(image_processing_pb2.TextWatermarkRequest(
-                        image_id=process_id,
-                        image_data=current_image,
-                        text=request.options.watermark_text,
-                        position=request.options.watermark_position or 'bottom-right',
-                        font_size=30,
-                        color="#FFFFFF",
-                        opacity=0.8
-                    ))
+                with ServerProxy(f'http://{watermark_host}', allow_none=True) as proxy:
+                    response = proxy.add_text_watermark(
+                        current_image,
+                        process_id,
+                        options.get('watermark_text', ''),
+                        options.get('watermark_position', 'bottom-right'),
+                        30,  # font_size
+                        "#FFFFFF",  # color
+                        0.8  # opacity
+                    )
                     
-                    if not response.success:
-                        raise Exception(f"Watermark failed: {response.message}")
+                    if not response['success']:
+                        raise Exception(f"Watermark failed: {response['message']}")
                     
-                    current_image = response.watermarked_image
-                    stats.watermark_time_ms = response.processing_time_ms
-                    stats.host_map["Watermark"] = watermark_host
-                    print(f"   ✅ Watermark added in {stats.watermark_time_ms}ms")
+                    current_image = response['watermarked_image']
+                    stats['watermark_time_ms'] = response['processing_time_ms']
+                    stats['host_map']['Watermark'] = watermark_host
+                    print(f"   ✅ Watermark added in {stats['watermark_time_ms']}ms")
             else:
                 print("⏭️  STAGE 3: Skipping watermark")
 
@@ -163,43 +179,42 @@ class OrchestratorServiceServicer(image_processing_pb2_grpc.OrchestratorServiceS
             format_host = self._get_next_host('format')
             print(f"📦 STAGE 4: Formatting/Compressing... (using {format_host})")
             
-            with grpc.insecure_channel(format_host) as channel:
-                stub = image_processing_pb2_grpc.FormatServiceStub(channel)
-                
+            with ServerProxy(f'http://{format_host}', allow_none=True) as proxy:
                 # Default to PNG if not specified
-                target_format = request.options.output_format
-                target_quality = request.options.output_quality
-                if target_quality == 0: target_quality = 90
+                target_format = options.get('output_format', 'PNG')
+                target_quality = options.get('output_quality', 90)
+                if target_quality == 0:
+                    target_quality = 90
                 
-                response = stub.ConvertFormat(image_processing_pb2.FormatRequest(
-                    image_id=process_id,
-                    image_data=current_image,
-                    format=target_format,
-                    quality=target_quality
-                ))
+                response = proxy.convert_format(
+                    current_image,
+                    process_id,
+                    target_format,
+                    target_quality
+                )
                 
-                if not response.success:
-                    raise Exception(f"Format failed: {response.message}")
+                if not response['success']:
+                    raise Exception(f"Format failed: {response['message']}")
                 
-                current_image = response.formatted_image
-                stats.format_time_ms = response.processing_time_ms
-                stats.host_map["Format"] = format_host
-                print(f"   ✅ Formatted in {stats.format_time_ms}ms")
+                current_image = response['formatted_image']
+                stats['format_time_ms'] = response['processing_time_ms']
+                stats['host_map']['Format'] = format_host
+                print(f"   ✅ Formatted in {stats['format_time_ms']}ms")
 
             # Finalize
-            stats.total_time_ms = int((time.time() - start_total) * 1000)
-            stats.processed_size_bytes = len(current_image)
-            stats.host_map["Orchestrator"] = "Device 5 (Master)"
+            stats['total_time_ms'] = int((time.time() - start_total) * 1000)
+            stats['processed_size_bytes'] = len(current_image.data)
+            stats['host_map']['Orchestrator'] = "Device 5 (Master)"
             
-            print(f"\n✅ Pipeline Complete! Total time: {stats.total_time_ms}ms")
+            print(f"\n✅ Pipeline Complete! Total time: {stats['total_time_ms']}ms")
             
-            return image_processing_pb2.ProcessResponse(
-                success=True,
-                message="Processing completed successfully",
-                process_id=process_id,
-                processed_image=current_image,
-                stats=stats
-            )
+            return {
+                'success': True,
+                'message': "Processing completed successfully",
+                'process_id': process_id,
+                'processed_image': current_image,
+                'stats': stats
+            }
 
         except Exception as e:
             print(f"❌ Pipeline error: {str(e)}")
@@ -207,23 +222,23 @@ class OrchestratorServiceServicer(image_processing_pb2_grpc.OrchestratorServiceS
     
     def _error_response(self, process_id, message):
         """Helper to create error response"""
-        return image_processing_pb2.ProcessResponse(
-            success=False,
-            message=message,
-            process_id=process_id,
-            processed_image=b'',
-            stats=image_processing_pb2.ProcessingStats()
-        )
+        return {
+            'success': False,
+            'message': message,
+            'process_id': process_id,
+            'processed_image': Binary(b''),
+            'stats': {}
+        }
     
-    def GetProcessingStatus(self, request, context):
+    def get_processing_status(self, process_id):
         """Get status of a processing job"""
-        return image_processing_pb2.StatusResponse(
-            process_id=request.process_id,
-            status="completed",
-            progress_percent=100,
-            current_stage="done",
-            stats=image_processing_pb2.ProcessingStats()
-        )
+        return {
+            'process_id': process_id,
+            'status': 'completed',
+            'progress_percent': 100,
+            'current_stage': 'done',
+            'stats': {}
+        }
 
 
 def serve(port=50055):
@@ -244,28 +259,13 @@ def serve(port=50055):
     watermark_hosts = os.getenv('WATERMARK_SERVICE_HOSTS', f'{DEFAULT_WATERMARK_IP}:50054')
     format_hosts = os.getenv('FORMAT_SERVICE_HOSTS', f'{DEFAULT_FORMAT_IP}:50056')
     
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    image_processing_pb2_grpc.add_OrchestratorServiceServicer_to_server(
-        OrchestratorServiceServicer(resize_hosts, filter_hosts, watermark_hosts, format_hosts), server
+    server = SimpleXMLRPCServer(('0.0.0.0', port), allow_none=True, logRequests=False)
+    server.register_instance(
+        OrchestratorService(resize_hosts, filter_hosts, watermark_hosts, format_hosts)
     )
     
-    # Enable reflection (optional, for debugging tools like grpcurl)
-    try:
-        from grpc_reflection.v1alpha import reflection
-        SERVICE_NAMES = (
-            image_processing_pb2.DESCRIPTOR.services_by_name['OrchestratorService'].full_name,
-            reflection.SERVICE_NAME,
-        )
-        reflection.enable_server_reflection(SERVICE_NAMES, server)
-        print("   ✓ gRPC reflection enabled")
-    except ImportError:
-        print("   ⚠ gRPC reflection not available (install grpcio-reflection for debugging support)")
-        pass
-
-    server.add_insecure_port(f'[::]:{port}')
     print(f"🎯 Orchestrator Service started on port {port}")
-    server.start()
-    server.wait_for_termination()
+    server.serve_forever()
 
 
 if __name__ == '__main__':

@@ -1,12 +1,9 @@
-import grpc
+"""
+Connection Probe - Test connectivity to XML-RPC services
+"""
+from xmlrpc.client import ServerProxy, Binary
 import sys
 import os
-
-# Add generated code to path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'generated'))
-
-import image_processing_pb2
-import image_processing_pb2_grpc
 
 def probe_service():
     # Get the IP from environment or ask user
@@ -16,28 +13,31 @@ def probe_service():
     
     print(f"Connecting to {target_ip}:50052...")
     
-    channel = grpc.insecure_channel(f'{target_ip}:50052')
-    stub = image_processing_pb2_grpc.ResizeServiceStub(channel)
-    
     try:
-        # Try to call the method
-        print("Attempting to call ResizeImage...")
-        response = stub.ResizeImage(image_processing_pb2.ResizeRequest(
-            image_id="probe",
-            image_data=b'123',
-            target_width=100,
-            target_height=100
-        ))
-        print("✅ SUCCESS! Method exists.")
-    except grpc.RpcError as e:
-        print(f"❌ ERROR: {e.code()}")
-        print(f"Details: {e.details()}")
+        # Connect to resize service
+        proxy = ServerProxy(f'http://{target_ip}:50052', allow_none=True)
         
-        if e.code() == grpc.StatusCode.UNIMPLEMENTED:
-            print("\n🚨 DIAGNOSIS: The server is running, but it does NOT have the ResizeImage method.")
-            print("This confirms the server is running OLD code (Movie Service?) or mismatched Proto files.")
-        elif e.code() == grpc.StatusCode.UNAVAILABLE:
-            print("\n🚨 DIAGNOSIS: Cannot connect to server. Firewall or wrong IP.")
+        # Try to call the method with a simple test
+        print("Attempting to call resize_image...")
+        response = proxy.resize_image(
+            Binary(b'test'),
+            "probe",
+            100,
+            100,
+            True
+        )
+        
+        if response.get('success'):
+            print("✅ SUCCESS! Service is running and responding.")
+        else:
+            print(f"⚠️  Service responded but with error: {response.get('message')}")
+            
+    except ConnectionRefusedError:
+        print("❌ ERROR: Connection refused")
+        print("\n🚨 DIAGNOSIS: Cannot connect to server. Check if service is running or firewall settings.")
+    except Exception as e:
+        print(f"❌ ERROR: {type(e).__name__}: {str(e)}")
+        print(f"\n🚨 DIAGNOSIS: {str(e)}")
 
 if __name__ == "__main__":
     probe_service()

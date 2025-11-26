@@ -1,10 +1,11 @@
 """
 Image Processing Pipeline GUI - Control Panel
+Now uses XML-RPC instead of gRPC
 """
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import threading
-import grpc
+from xmlrpc.client import ServerProxy, Binary
 import sys
 import os
 import time
@@ -12,11 +13,15 @@ import shutil
 from PIL import Image, ImageDraw
 from io import BytesIO
 
-# Add generated code to path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'generated'))
-
-import image_processing_pb2
-import image_processing_pb2_grpc
+# Filter and format constants (replacing protobuf enums)
+FILTERS = {
+    'BLUR': 'BLUR',
+    'SHARPEN': 'SHARPEN',
+    'SEPIA': 'SEPIA',
+    'BRIGHTNESS': 'BRIGHTNESS',
+    'CONTRAST': 'CONTRAST',
+    'GRAYSCALE': 'GRAYSCALE'
+}
 
 
 def create_sample_image(width=1920, height=1080):
@@ -41,7 +46,7 @@ def create_sample_image(width=1920, height=1080):
     
     # Text
     draw.text((width//2 - 100, height//2 - 30), "SAMPLE IMAGE", fill=(255, 255, 255))
-    draw.text((width//2 - 120, height//2 + 30), "For gRPC Processing", fill=(255, 255, 255))
+    draw.text((width//2 - 120, height//2 + 30), "For XML-RPC Processing", fill=(255, 255, 255))
     
     return image
 
@@ -49,7 +54,7 @@ def create_sample_image(width=1920, height=1080):
 class PipelineGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("gRPC Image Processing Pipeline - Control Panel")
+        self.root.title("XML-RPC Image Processing Pipeline - Control Panel")
         self.root.geometry("800x600")
         
         # Variables
@@ -186,8 +191,7 @@ class PipelineGUI:
             
             # Connect to Orchestrator
             self.log("🔌 Connecting to Orchestrator Service (port 50055)...")
-            channel = grpc.insecure_channel('localhost:50055')
-            stub = image_processing_pb2_grpc.OrchestratorServiceStub(channel)
+            proxy = ServerProxy('http://localhost:50055', allow_none=True)
             
             successful = 0
             failed = 0
@@ -211,44 +215,42 @@ class PipelineGUI:
                 
                 # Vary filters
                 filter_sets = [
-                    [image_processing_pb2.BLUR, image_processing_pb2.SHARPEN],
-                    [image_processing_pb2.SEPIA],
-                    [image_processing_pb2.BRIGHTNESS, image_processing_pb2.CONTRAST],
-                    [image_processing_pb2.GRAYSCALE],
+                    ['BLUR', 'SHARPEN'],
+                    ['SEPIA'],
+                    ['BRIGHTNESS', 'CONTRAST'],
+                    ['GRAYSCALE'],
                 ]
                 filters = filter_sets[i % len(filter_sets)]
                 
-                watermarks = [f"Image #{i}", "Batch Processing", "Distributed Pipeline", "gRPC Demo"]
+                watermarks = [f"Image #{i}", "Batch Processing", "Distributed Pipeline", "XML-RPC Demo"]
                 watermark = watermarks[i % len(watermarks)]
                 
                 try:
                     # Create options
-                    options = image_processing_pb2.ProcessingOptions(
-                        target_width=1280,
-                        target_height=720,
-                        filters=filters,
-                        add_watermark=True,
-                        watermark_text=watermark,
-                        watermark_position="bottom-right",
-                        output_format=image_processing_pb2.PNG,
-                        output_quality=90
+                    options = {
+                        'target_width': 1280,
+                        'target_height': 720,
+                        'filters': filters,
+                        'add_watermark': True,
+                        'watermark_text': watermark,
+                        'watermark_position': "bottom-right",
+                        'output_format': 'PNG',
+                        'output_quality': 90
+                    }
+                    
+                    response = proxy.process_image(
+                        f"output/batch_{i:03d}.png",
+                        Binary(img_bytes),
+                        options
                     )
                     
-                    response = stub.ProcessImage(
-                        image_processing_pb2.ProcessRequest(
-                            filename=f"output/batch_{i:03d}.png",
-                            image_data=img_bytes,
-                            options=options
-                        )
-                    )
-                    
-                    if response.success:
-                        result_img = Image.open(BytesIO(response.processed_image))
+                    if response['success']:
+                        result_img = Image.open(BytesIO(response['processed_image'].data))
                         result_img.save(f"output/batch_{i:03d}.png")
-                        self.log(f"✅ Success! Total: {response.stats.total_time_ms}ms")
+                        self.log(f"✅ Success! Total: {response['stats']['total_time_ms']}ms")
                         successful += 1
                     else:
-                        self.log(f"❌ FAILED: {response.message}")
+                        self.log(f"❌ FAILED: {response['message']}")
                         failed += 1
                         
                 except Exception as e:
@@ -272,8 +274,6 @@ class PipelineGUI:
             self.log("="*80)
             
             self.status_label.config(text=f"✅ Complete! {successful}/{num_images} successful")
-            
-            channel.close()
             
         except Exception as e:
             self.log(f"\n❌ Error: {str(e)}")

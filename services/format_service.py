@@ -1,43 +1,56 @@
-import grpc
-from concurrent import futures
+"""
+Format Service - Converts images to different formats and adjusts quality
+Now uses XML-RPC instead of gRPC
+"""
+from xmlrpc.server import SimpleXMLRPCServer
+from xmlrpc.client import Binary
 import time
 import os
 import sys
 from io import BytesIO
 from PIL import Image
 
-# Add generated code to path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'generated'))
+# Fix Windows console encoding
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-import image_processing_pb2
-import image_processing_pb2_grpc
+# Image format constants (replacing protobuf enums)
+IMAGE_FORMATS = {
+    'PNG': 'PNG',
+    'JPEG': 'JPEG',
+    'WEBP': 'WEBP'
+}
 
-class FormatService(image_processing_pb2_grpc.FormatServiceServicer):
-    def ConvertFormat(self, request, context):
+
+class FormatService:
+    def convert_format(self, image_data, image_id, format_type, quality):
         start_time = time.time()
-        print(f"📦 Processing format request for image: {request.image_id}")
+        print(f"📦 Processing format request for image: {image_id}")
         
         try:
+            # Decode binary data from XML-RPC
+            image_bytes = image_data.data
+            
             # Load image from bytes
-            image = Image.open(BytesIO(request.image_data))
+            image = Image.open(BytesIO(image_bytes))
             
             # Determine output format
-            output_format = 'PNG' # Default
-            if request.format == image_processing_pb2.JPEG:
+            output_format = 'PNG'  # Default
+            if format_type == 'JPEG':
                 output_format = 'JPEG'
                 # JPEG doesn't support RGBA (transparency), convert to RGB
                 if image.mode in ('RGBA', 'LA'):
                     background = Image.new('RGB', image.size, (255, 255, 255))
                     background.paste(image, mask=image.split()[-1])
                     image = background
-            elif request.format == image_processing_pb2.WEBP:
+            elif format_type == 'WEBP':
                 output_format = 'WEBP'
             
             # Save to bytes with specified quality
             output_buffer = BytesIO()
             
             # Quality handling
-            quality = request.quality
             if quality <= 0 or quality > 100:
                 quality = 85  # Default quality
                 
@@ -58,48 +71,36 @@ class FormatService(image_processing_pb2_grpc.FormatServiceServicer):
             print(f"{'='*60}")
             print(f"   Output Format: {output_format}")
             print(f"   Quality:       {quality}%")
-            print(f"   Image ID:      {request.image_id}")
-            print(f"   Input size:    {len(request.image_data):,} bytes")
+            print(f"   Image ID:      {image_id}")
+            print(f"   Input size:    {len(image_bytes):,} bytes")
             print(f"   Output size:   {len(formatted_data):,} bytes")
-            print(f"   Compression:   {((1 - len(formatted_data)/len(request.image_data)) * 100):.1f}%")
+            print(f"   Compression:   {((1 - len(formatted_data)/len(image_bytes)) * 100):.1f}%")
             print(f"   Processing:    {processing_time}ms")
             print(f"{'='*60}\n")
             
-            return image_processing_pb2.FormatResponse(
-                success=True,
-                message="Format conversion successful",
-                formatted_image=formatted_data,
-                processing_time_ms=processing_time
-            )
+            return {
+                'success': True,
+                'message': "Format conversion successful",
+                'formatted_image': Binary(formatted_data),
+                'processing_time_ms': processing_time
+            }
             
         except Exception as e:
             print(f"❌ Error formatting image: {str(e)}")
-            return image_processing_pb2.FormatResponse(
-                success=False,
-                message=f"Format failed: {str(e)}",
-                formatted_image=b"",
-                processing_time_ms=0
-            )
+            return {
+                'success': False,
+                'message': f"Format failed: {str(e)}",
+                'formatted_image': Binary(b""),
+                'processing_time_ms': 0
+            }
+
 
 def serve(port=50056):
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    image_processing_pb2_grpc.add_FormatServiceServicer_to_server(FormatService(), server)
-    
-    # Enable reflection (optional, for debugging)
-    try:
-        from grpc_reflection.v1alpha import reflection
-        SERVICE_NAMES = (
-            image_processing_pb2.DESCRIPTOR.services_by_name['FormatService'].full_name,
-            reflection.SERVICE_NAME,
-        )
-        reflection.enable_server_reflection(SERVICE_NAMES, server)
-    except ImportError:
-        pass
-
-    server.add_insecure_port(f'[::]:{port}')
+    server = SimpleXMLRPCServer(('0.0.0.0', port), allow_none=True, logRequests=False)
+    server.register_instance(FormatService())
     print(f"📦 Format Service started on port {port}")
-    server.start()
-    server.wait_for_termination()
+    server.serve_forever()
+
 
 if __name__ == '__main__':
     # Allow port override via environment variable

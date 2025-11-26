@@ -10,10 +10,6 @@ COPY requirements.txt .
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy proto files and generated code
-COPY protos/ ./protos/
-COPY generated/ ./generated/
-
 # Copy service code
 COPY services/ ./services/
 
